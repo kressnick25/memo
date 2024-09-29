@@ -1,8 +1,12 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
+	"unicode/utf8"
 )
 
 type Cache struct {
@@ -63,6 +67,53 @@ func (c *Cache) Store(key string, data []byte) error {
 		return fmt.Errorf("error writing data to file cache: %w", err)
 	}
 	return nil
+}
+
+type header struct {
+    contentLength int64
+    updatedAt int64
+}
+
+func (h *header) toString() string {
+    return fmt.Sprintf("memo,%d,%d\n", h.contentLength, h.updatedAt)
+}
+
+func parseHeader(data []byte) (*header, error) {
+    headerHeader := string(data[:4])
+    if headerHeader != "memo" {
+        return nil, errors.New("Data does not begin with a memo header")
+    }
+
+    i := 0
+    for {
+        r,_ := utf8.DecodeRune([]byte{data[i]})
+        if r == utf8.RuneError {
+            return nil, errors.New("Error parsing memo header, encountered error Rune")
+        }
+        if r == '\n' {
+            break
+        }
+    }
+    if i == 0 {
+        panic("i was still 0")
+    }
+
+    headerString := string(data[:i])
+    vals := strings.Split(headerString, ",")
+
+    // see header::toString for order
+    contentLength, err := strconv.ParseInt(vals[1])
+    if err != nil {
+        return nil, fmt.Errorf("Error parsing contentLength integer header: %w", err)
+    }
+    updatedAt, err := strconv.ParseInt(vals[2])
+    if err != nil {
+        return nil, fmt.Errorf("Error parsing updatedAt integer header: %w", err)
+    }
+    return &header{contentLength: contentLength, updatedAt: updatedAt}, nil
+
+
+
 }
 
 func fileExists(path string) (bool, error) {
