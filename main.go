@@ -23,25 +23,6 @@ func hash(text string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func stream(input *os.File, output *os.File, bufLength int) error {
-	buf := make([]byte, bufLength)
-	for {
-		n, err := input.Read(buf)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		_, err = output.Write(buf[:n])
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func main() {
 	args := os.Args[1:]
 	cmdString := strings.Join(args, " ")
@@ -57,7 +38,8 @@ func main() {
 	cachedOutput, err := cache.Get(cmdHash)
 	check(err)
 	if cachedOutput != nil {
-		stream(cachedOutput, os.Stdout, 128)
+		_, err = io.Copy(os.Stdout, cachedOutput)
+		check(err)
 		return
 	}
 
