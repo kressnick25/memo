@@ -8,21 +8,15 @@ import (
 	"os"
     "os/exec"
 	"strings"
+    
+    "internal/db"
 )
 
-const dataDir = "/home/nkress/.memo"
 
 func check(err error) {
     if err != nil {
         panic(err)
     }
-}
-
-func fileExists(path string) (bool, error) {
-    _, err := os.Stat(path)
-    if err == nil { return true, nil }
-    if os.IsNotExist(err) { return false, nil }
-    return false, err
 }
 
 func hash(text string) string {
@@ -54,42 +48,34 @@ func main() {
     cmdString := strings.Join(args, " ")
     cmdHash := hash(cmdString)
 
+    cache := db.Cache{Path: os.Getenv("HOME") + "/.memo"}
 
-    // ensure Memo directory exists
-    exists, err := fileExists(dataDir)
-    check(err)
-    if !exists {
-        err = os.Mkdir(dataDir, os.FileMode(int(0700)))
-        if err != nil {
-            fmt.Printf("Error creating memo directory '%s': %s\n", dataDir, err.Error())
-            os.Exit(1)
-        }
+    err := cache.Setup()
+    if err != nil {
+        println(err.Error())
     }
 
-    filePath := fmt.Sprintf("%s/%s", dataDir, cmdHash)
-
-    // read cache if exists
-    exists, err = fileExists(filePath)
+    cachedOutput, err := cache.Get(cmdHash)
     check(err)
-    if exists {
-        existingFile, err := os.Open(filePath)
-        check(err)
-        err = stream(existingFile, os.Stdout, 256)
-        check(err) 
+    if cachedOutput != nil {
+        stream(cachedOutput, os.Stdout, 128)
         return
     }
 
     // exec supplied command
-    cmd := exec.Command(args[0], strings.Join(args[1:], " "))
+    var cmd *exec.Cmd
+    if len(args) > 1 {
+        cmd = exec.Command(args[0], strings.Join(args[1:], " "))
+    } else {
+        cmd = exec.Command(args[0])
+    }
+
     stdout, err := cmd.Output()
-    check(err)
+    if err != nil {
+        fmt.Printf("error executing supplied command: %s\n", err.Error())
+    }
 
-    // cache output
-    file, err := os.Create(filePath)
-    check(err)
-    defer file.Close()
-
-    _, err = file.Write(stdout)
+    err = cache.Store(cmdHash, stdout)
     check(err)
 
     // write output of cmd
