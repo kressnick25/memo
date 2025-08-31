@@ -24,6 +24,11 @@ func hash(text string) string {
 }
 
 func main() {
+	if len(os.Args) < 2 {
+		println("Usage: memo <program to run> <program args>")	
+		os.Exit(1)
+	}
+
 	args := os.Args[1:]
 	cmdString := strings.Join(args, " ")
 	cmdHash := hash(cmdString)
