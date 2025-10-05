@@ -121,7 +121,7 @@ func (c *Cache) Store(key string, ttl time.Duration, data []byte) error {
 		Ttl: ttl.Seconds(),
 		Data: data,
 	}
-	marshalled, err := json.Marshal(entry)
+	marshalled, err := json.MarshalIndent(entry, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshalling json: %w", err)
 	}
