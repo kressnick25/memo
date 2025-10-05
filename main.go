@@ -14,6 +14,20 @@ import (
 	"internal/db"
 )
 
+const helpText string = 
+`Usage: memo <program to run> <program args>
+
+memo is a program to cache the stdout of other command-line programs.
+This can be useful if you have cli program that takes a while to execute,
+but the result does not change very often.
+
+For example:
+./memo 'echo "scale=2000; 4*a(1)" | bc -l'
+
+This will take a while to compute pi to 2000 places the first time it runs.
+But after memo has cached the result, subsequent runs will return instantaneously.
+`
+
 func check(err error) {
 	if err != nil {
 		panic(err)
@@ -40,7 +54,7 @@ func buildCommand(argv []string) exec.Cmd {
 func main() {
 	// Args
 	if len(os.Args) < 2 {
-		slog.Error("Usage: memo <program to run> <program args>")
+		slog.Error(helpText)
 	}
 
 	if os.Getenv("MEMO_DEBUG") != "" {
