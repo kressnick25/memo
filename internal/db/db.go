@@ -3,14 +3,16 @@ package db
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"time"
 )
 
 type CacheEntry struct {
 	CreatedAt time.Time `json:"createdAt"`
-	Ttl int `json:"ttl"`
+	Ttl float64 `json:"ttl"`
 	Data []byte `json:"data"`
 }
 
@@ -35,6 +37,31 @@ func (c *Cache) Setup() error {
 	}
 
 	return nil
+}
+
+// Clear all entries from the cache
+func (c *Cache) Clear() error {
+	return filepath.WalkDir(c.Path, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			fmt.Printf("Error accessing path %s: %v\n", path, err)
+			return err // Continue processing, or return an error to stop
+		}
+
+		if d.IsDir() {
+			slog.Debug("Skipping clearing dir", "dir", d.Name())
+		} else {
+			slog.Debug("Deleting cache file", "file", d.Name())
+			os.Remove(path)
+		}
+
+		// Example: Skip a specific directory
+		if !d.IsDir() && d.Name() == ".config" {
+			slog.Debug("Skipping memo config file", "file", d.Name())
+			return filepath.SkipDir // Skips the contents of this directory
+		}
+
+		return nil // Continue walking
+	})
 }
 
 // Get a stored value, assigned to the supplied key
@@ -67,7 +94,7 @@ func (c *Cache) Get(key string) (*CacheEntry, error) {
 }
 
 // Store data for the given key
-func (c *Cache) Store(key string, data []byte) error {
+func (c *Cache) Store(key string, ttl time.Duration, data []byte) error {
 	filePath := fmt.Sprintf("%s/%s", c.Path, key)
 
 	file, err := os.Create(filePath)
@@ -78,7 +105,7 @@ func (c *Cache) Store(key string, data []byte) error {
 
 	entry := &CacheEntry{
 		CreatedAt: time.Now(),
-		Ttl: 3600,
+		Ttl: ttl.Seconds(),
 		Data: data,
 	}
 	marshalled, err := json.Marshal(entry)
