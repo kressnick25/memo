@@ -1,9 +1,18 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"time"
 )
+
+type CacheEntry struct {
+	CreatedAt time.Time `json:"createdAt"`
+	Ttl int `json:"ttl"`
+	Data []byte `json:"data"`
+}
 
 type Cache struct {
 	// absolute path of cache in the filesystem
@@ -18,6 +27,7 @@ func (c *Cache) Setup() error {
 	}
 
 	if !exists {
+		log.Println("Creating default data directory ~/.memo")
 		err = os.Mkdir(c.Path, os.FileMode(int(0700)))
 		if err != nil {
 			return fmt.Errorf("error creating memo directory '%s': %w", c.Path, err)
@@ -29,7 +39,7 @@ func (c *Cache) Setup() error {
 
 // Get a stored value, assigned to the supplied key
 // Returns (nil, nil) if no value stored for supplied key
-func (c *Cache) Get(key string) (*os.File, error) {
+func (c *Cache) Get(key string) (*CacheEntry, error) {
 	filePath := fmt.Sprintf("%s/%s", c.Path, key)
 
 	// read cache if exists
@@ -38,13 +48,21 @@ func (c *Cache) Get(key string) (*os.File, error) {
 		return nil, fmt.Errorf("error checking if cache file exists: %w", err)
 	}
 	if exists {
-		existingFile, err := os.Open(filePath)
+		log.Printf("Cache hit. key %s", key)
+		existingFile, err := os.ReadFile(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("error opening cache file: %w", err)
 		}
-		return existingFile, nil
+		var e CacheEntry
+		err = json.Unmarshal(existingFile, &e)
+		if err != nil {
+			return nil, err
+		}
+
+		return &e, nil
 	}
 
+	log.Printf("Cache miss. key %s", key)
 	return nil, nil
 }
 
@@ -58,10 +76,20 @@ func (c *Cache) Store(key string, data []byte) error {
 	}
 	defer file.Close()
 
-	_, err = file.Write(data)
+	entry := &CacheEntry{
+		CreatedAt: time.Now(),
+		Ttl: 3600,
+		Data: data,
+	}
+	marshalled, err := json.Marshal(entry)
+	if err != nil {
+		return fmt.Errorf("error marshalling json: %w", err)
+	}
+	_, err = file.Write(marshalled)
 	if err != nil {
 		return fmt.Errorf("error writing data to file cache: %w", err)
 	}
+	log.Printf("Wrote new cache entry for key %s", key)
 	return nil
 }
 

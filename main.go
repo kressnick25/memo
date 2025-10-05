@@ -1,10 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
-	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -37,8 +38,7 @@ func buildCommand(argv []string) exec.Cmd {
 
 func main() {
 	if len(os.Args) < 2 {
-		println("Usage: memo <program to run> <program args>")
-		os.Exit(1)
+		log.Println("Usage: memo <program to run> <program args>")
 	}
 
 	args := os.Args[1:]
@@ -49,13 +49,16 @@ func main() {
 
 	err := cache.Setup()
 	if err != nil {
-		println(err.Error())
+		log.Fatalf("Error setting up cache: %s", err.Error())
 	}
 
-	cachedOutput, err := cache.Get(cmdHash)
-	check(err)
-	if cachedOutput != nil {
-		_, err = io.Copy(os.Stdout, cachedOutput)
+	cacheEntry, err := cache.Get(cmdHash)
+	if err != nil {
+		log.Fatalf("error retreiving cache data: %s", err.Error())
+	}
+
+	if cacheEntry != nil {
+		_, err = io.Copy(os.Stdout, bytes.NewReader(cacheEntry.Data))
 		check(err)
 		return
 	}
@@ -66,13 +69,17 @@ func main() {
 
 	stdout, err := cmd.Output()
 	if err != nil {
-		fmt.Printf("error executing supplied command: %s\n", err.Error())
+		log.Fatalf("error executing supplied command: %s", err.Error())
 	}
 
 	err = cache.Store(cmdHash, stdout)
-	check(err)
+	if err != nil {
+		log.Fatalf("error storing cache data: %s", err.Error())
+	}
 
 	// write output of cmd
 	_, err = os.Stdout.Write(stdout)
 	check(err)
+
+	os.Exit(0)
 }
