@@ -23,9 +23,21 @@ func hash(text string) string {
 	return hex.EncodeToString(hash[:])
 }
 
+func buildCommand(argv []string) exec.Cmd {
+	currentShell, isSet := os.LookupEnv("SHELL")
+	if !isSet {
+		if len(argv) > 0 {
+			return *exec.Command(argv[0], strings.Join(argv[0:], " "))
+		}
+		return *exec.Command(argv[0])
+	}
+
+	return *exec.Command(currentShell, "-c", strings.Join(argv[0:], " "))
+}
+
 func main() {
 	if len(os.Args) < 2 {
-		println("Usage: memo <program to run> <program args>")	
+		println("Usage: memo <program to run> <program args>")
 		os.Exit(1)
 	}
 
@@ -49,12 +61,8 @@ func main() {
 	}
 
 	// exec supplied command
-	var cmd *exec.Cmd
-	if len(args) > 1 {
-		cmd = exec.Command(args[0], strings.Join(args[1:], " "))
-	} else {
-		cmd = exec.Command(args[0])
-	}
+	cmd := buildCommand(args)
+	cmd.Env = os.Environ()
 
 	stdout, err := cmd.Output()
 	if err != nil {
