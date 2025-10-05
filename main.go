@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 
 	"internal/db"
 )
@@ -37,10 +38,11 @@ func buildCommand(argv []string) exec.Cmd {
 }
 
 func main() {
+	// Args
 	if len(os.Args) < 2 {
 		slog.Error("Usage: memo <program to run> <program args>")
 	}
-	
+
 	if os.Getenv("MEMO_DEBUG") != "" {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
@@ -51,12 +53,14 @@ func main() {
 
 	cache := db.Cache{Path: os.Getenv("HOME") + "/.memo"}
 
+	// Setup cache
 	err := cache.Setup()
 	if err != nil {
 		slog.Error("Error setting up cache", "err", err)
 		os.Exit(1)
 	}
 
+	// Retreive cache entry if exists
 	cacheEntry, err := cache.Get(cmdHash)
 	if err != nil {
 		slog.Error("error retreiving cache data", "err", err)
@@ -79,15 +83,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = cache.Store(cmdHash, stdout)
-	if err != nil {
-		slog.Error("error storing cache data", "err", err)
-		os.Exit(1)
-	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Store output
+		err = cache.Store(cmdHash, stdout)
+		if err != nil {
+			slog.Error("error storing cache data", "err", err)
+		}
+	}()
 
 	// write output of cmd
 	_, err = os.Stdout.Write(stdout)
 	check(err)
 
+	wg.Wait()
 	os.Exit(0)
 }
