@@ -3,7 +3,7 @@ package db
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 )
@@ -27,7 +27,7 @@ func (c *Cache) Setup() error {
 	}
 
 	if !exists {
-		log.Println("Creating default data directory ~/.memo")
+		slog.Debug("Creating default data directory ~/.memo")
 		err = os.Mkdir(c.Path, os.FileMode(int(0700)))
 		if err != nil {
 			return fmt.Errorf("error creating memo directory '%s': %w", c.Path, err)
@@ -48,7 +48,7 @@ func (c *Cache) Get(key string) (*CacheEntry, error) {
 		return nil, fmt.Errorf("error checking if cache file exists: %w", err)
 	}
 	if exists {
-		log.Printf("Cache hit. key %s", key)
+		slog.Debug("Cache hit", "key", key)
 		existingFile, err := os.ReadFile(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("error opening cache file: %w", err)
@@ -62,7 +62,7 @@ func (c *Cache) Get(key string) (*CacheEntry, error) {
 		return &e, nil
 	}
 
-	log.Printf("Cache miss. key %s", key)
+	slog.Debug("Cache miss", "key", key)
 	return nil, nil
 }
 
@@ -89,7 +89,7 @@ func (c *Cache) Store(key string, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("error writing data to file cache: %w", err)
 	}
-	log.Printf("Wrote new cache entry for key %s", key)
+	slog.Debug("Wrote new cache entry", "key", key)
 	return nil
 }
 

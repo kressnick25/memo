@@ -5,7 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
@@ -38,7 +38,11 @@ func buildCommand(argv []string) exec.Cmd {
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Println("Usage: memo <program to run> <program args>")
+		slog.Error("Usage: memo <program to run> <program args>")
+	}
+	
+	if os.Getenv("MEMO_DEBUG") != "" {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
 
 	args := os.Args[1:]
@@ -49,12 +53,14 @@ func main() {
 
 	err := cache.Setup()
 	if err != nil {
-		log.Fatalf("Error setting up cache: %s", err.Error())
+		slog.Error("Error setting up cache", "err", err)
+		os.Exit(1)
 	}
 
 	cacheEntry, err := cache.Get(cmdHash)
 	if err != nil {
-		log.Fatalf("error retreiving cache data: %s", err.Error())
+		slog.Error("error retreiving cache data", "err", err)
+		os.Exit(1)
 	}
 
 	if cacheEntry != nil {
@@ -69,12 +75,14 @@ func main() {
 
 	stdout, err := cmd.Output()
 	if err != nil {
-		log.Fatalf("error executing supplied command: %s", err.Error())
+		slog.Error("error executing supplied command", "err", err)
+		os.Exit(1)
 	}
 
 	err = cache.Store(cmdHash, stdout)
 	if err != nil {
-		log.Fatalf("error storing cache data: %s", err.Error())
+		slog.Error("error storing cache data", "err", err)
+		os.Exit(1)
 	}
 
 	// write output of cmd
