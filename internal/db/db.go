@@ -16,6 +16,13 @@ type CacheEntry struct {
 	Data []byte `json:"data"`
 }
 
+func (c *CacheEntry) IsStale() bool {
+	now := time.Now()
+	ttlDuration := time.Duration(c.Ttl * float64(time.Second))
+	expiry := c.CreatedAt.Add(ttlDuration)
+	return now.After(expiry)
+}
+
 type Cache struct {
 	// absolute path of cache in the filesystem
 	Path string
@@ -75,21 +82,27 @@ func (c *Cache) Get(key string) (*CacheEntry, error) {
 		return nil, fmt.Errorf("error checking if cache file exists: %w", err)
 	}
 	if exists {
-		slog.Debug("Cache hit", "key", key)
 		existingFile, err := os.ReadFile(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("error opening cache file: %w", err)
 		}
+
 		var e CacheEntry
 		err = json.Unmarshal(existingFile, &e)
 		if err != nil {
 			return nil, err
 		}
+	
+		if e.IsStale() {
+			slog.Debug("Cache miss", "key", key, "stale", true)
+			return nil, nil
+		}
 
+		slog.Debug("Cache hit", "key", key, "stale", false)
 		return &e, nil
 	}
 
-	slog.Debug("Cache miss", "key", key)
+	slog.Debug("Cache miss", "key", key, "stale", false)
 	return nil, nil
 }
 
