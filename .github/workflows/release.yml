@@ -24,7 +24,19 @@ jobs:
         run: |
           go build -v -o memo
 
+      - name: Build Linux amd64 binary
+        run: GOOS=linux GOARCH=amd64 go build -v -o memo-linux-amd64
+
+      - name: Build Windows amd64 binary
+        run: GOOS=windows GOARCH=amd64 go build -v -o memo-windows-amd64.exe
+
+      - name: Build macOS arm64 binary
+        run: GOOS=darwin GOARCH=arm64 go build -v -o memo-darwin-arm64
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: memo
+          files: |
+            memo-linux-amd64
+            memo-windows-amd64.exe
+            memo-darwin-arm64
