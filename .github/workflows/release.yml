@@ -3,16 +3,17 @@ name: Build & Release
 on:
   push:
     tags:
-      - '*'
+      - "v*.*.*"
 
 jobs:
   build-release:
     name: Build & Release
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -23,17 +24,7 @@ jobs:
         run: |
           go build -v -o memo
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload binary to release
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: memo
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
